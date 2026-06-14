@@ -86,6 +86,7 @@ demo/video/
 demo/copilot-context.txt
 demo/**/copilot-context.txt
 *.mp4
+!querybench_hackathon_PPT.mp4
 *.wav
 *.mp3
 *.webm

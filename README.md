@@ -13,6 +13,15 @@ validate SQL, and execute it safely — then explains the results.
 > installed extensions (PostGIS spatial, pgvector semantic search).
 > See **[Microsoft Foundry IQ — Governed Knowledge Grounding](#microsoft-foundry-iq--governed-knowledge-grounding)**.
 
+## Demo Video
+
+[Watch the 4-minute QueryBench hackathon demo](./querybench_hackathon_PPT.mp4)
+
+This walkthrough shows the agent experience end to end: governed business
+context from Microsoft Foundry IQ, MCP tool calls, PostGIS/pgvector-aware SQL,
+validation, execution, and the trust panel that explains why the answer can be
+trusted.
+
 ---
 
 ## How It Works
