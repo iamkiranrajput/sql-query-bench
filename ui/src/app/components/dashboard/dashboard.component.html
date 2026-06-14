@@ -1,0 +1,311 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h1 class="dashboard-title">
+        <mat-icon class="title-icon">dashboard</mat-icon>
+        Dashboard
+      </h1>
+      <span class="subtitle">Query performance analytics &amp; insights</span>
+    </div>
+    <div class="header-right">
+      <button class="ai-chat-btn" (click)="openNewChat.emit()" matTooltip="New Chat">
+        <mat-icon>auto_awesome</mat-icon>
+      </button>
+      <span *ngIf="!loading" class="last-updated">
+        {{ totalQueries }} queries tracked
+      </span>
+      <button class="refresh-btn" (click)="refresh()" [disabled]="loading">
+        <mat-icon [class.spinning]="loading">refresh</mat-icon>
+        Refresh
+      </button>
+      <button class="refresh-btn" (click)="recalculateCosts()" [disabled]="recalculating" matTooltip="Recalculate all costs with current pricing">
+        <mat-icon [class.spinning]="recalculating">calculate</mat-icon>
+        Fix Costs
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading && logs.length === 0" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <p>Loading dashboard data…</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && logs.length === 0" class="error-state">
+    <mat-icon>error_outline</mat-icon>
+    <p>{{ error }}</p>
+    <button class="refresh-btn" (click)="refresh()">
+      <mat-icon>refresh</mat-icon> Retry
+    </button>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div *ngIf="logs.length > 0" class="dashboard-content">
+
+    <!-- ── KPI Cards ─────────────────────────────────────────── -->
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-primary">
+        <div class="kpi-icon-wrap"><mat-icon>query_stats</mat-icon></div>
+        <div class="kpi-body">
+          <span class="kpi-value">{{ formatNumber(totalQueries) }}</span>
+          <span class="kpi-label">Total Queries</span>
+        </div>
+      </div>
+      <div class="kpi-card kpi-success">
+        <div class="kpi-icon-wrap"><mat-icon>check_circle</mat-icon></div>
+        <div class="kpi-body">
+          <span class="kpi-value">{{ successRate | number:'1.1-1' }}%</span>
+          <span class="kpi-label">Success Rate</span>
+          <span class="kpi-sub">{{ successCount }} passed · {{ failedCount }} failed</span>
+        </div>
+      </div>
+      <div class="kpi-card kpi-info">
+        <div class="kpi-icon-wrap"><mat-icon>speed</mat-icon></div>
+        <div class="kpi-body">
+          <span class="kpi-value">{{ formatMs(avgTimeMs) }}</span>
+          <span class="kpi-label">Avg Response Time</span>
+          <span class="kpi-sub">P95: {{ formatMs(p95TimeMs) }}</span>
+        </div>
+      </div>
+      <div class="kpi-card kpi-accent">
+        <div class="kpi-icon-wrap"><mat-icon>table_rows</mat-icon></div>
+        <div class="kpi-body">
+          <span class="kpi-value">{{ formatNumber(totalRows) }}</span>
+          <span class="kpi-label">Total Rows Returned</span>
+          <span class="kpi-sub">Fastest: {{ formatMs(fastestQueryMs) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 1: Trend + Top Tables ───────────────────── -->
+    <div class="chart-row">
+      <div class="chart-card chart-wide">
+        <div class="chart-card-header">
+          <h3><mat-icon>trending_up</mat-icon> Query Trend</h3>
+          <span class="chart-hint">Query volume &amp; avg response time</span>
+        </div>
+        <div class="chart-body">
+          <canvas #trendChart></canvas>
+        </div>
+      </div>
+      <div class="chart-card chart-narrow">
+        <div class="chart-card-header">
+          <h3><mat-icon>storage</mat-icon> Top Queried Tables</h3>
+        </div>
+        <div class="chart-body">
+          <canvas #topTablesChart></canvas>
+        </div>
+        <!-- Table list fallback -->
+        <div *ngIf="topTables.length === 0" class="chart-empty">
+          <mat-icon>table_chart</mat-icon>
+          <span>No table usage data yet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 2: Pass/Fail + Response Time ────────────── -->
+    <div class="chart-row">
+      <div class="chart-card chart-half">
+        <div class="chart-card-header">
+          <h3><mat-icon>verified</mat-icon> Pass / Fail</h3>
+        </div>
+        <div class="chart-body">
+          <canvas #passFailChart></canvas>
+        </div>
+      </div>
+      <div class="chart-card chart-half">
+        <div class="chart-card-header">
+          <h3><mat-icon>timer</mat-icon> Response Time Distribution</h3>
+          <span class="chart-hint">Query response times</span>
+        </div>
+        <div class="chart-body">
+          <canvas #responseTimeChart></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart Row 3: Model Usage ─────────────────────────── -->
+    <div class="chart-row" *ngIf="modelUsage.length > 0">
+      <div class="chart-card chart-half">
+        <div class="chart-card-header">
+          <h3><mat-icon>model_training</mat-icon> Model Usage</h3>
+          <span class="chart-hint">Which LLM models are used</span>
+        </div>
+        <div class="chart-body">
+          <canvas #modelChart></canvas>
+        </div>
+      </div>
+      <div class="chart-card chart-half">
+        <div class="chart-card-header">
+          <h3><mat-icon>analytics</mat-icon> Model Cost Breakdown</h3>
+        </div>
+        <div class="chart-body model-cost-list">
+          <div class="model-cost-item" *ngFor="let m of modelUsage">
+            <span class="model-name">{{ m.model }}</span>
+            <span class="model-count">{{ m.count }} queries</span>
+            <span class="model-cost">{{ formatCost(m.cost) }}</span>
+          </div>
+          <div class="model-cost-item total" *ngIf="modelUsage.length > 0">
+            <span class="model-name"><strong>Avg Cost / Query</strong></span>
+            <span class="model-count"></span>
+            <span class="model-cost"><strong>{{ formatCost(avgCostPerQuery) }}</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Query Logs Section ────────────────────────────────── -->
+    <div class="logs-section">
+      <div class="logs-header">
+        <h3><mat-icon>receipt_long</mat-icon> Query Logs</h3>
+        <span class="logs-count">
+          {{ filteredLogs.length }} of {{ logs.length }} queries
+        </span>
+      </div>
+
+      <div class="filter-toolbar">
+        <div class="filter-search">
+          <mat-icon class="search-icon">search</mat-icon>
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="applyFilters()"
+            placeholder="Search queries, SQL, errors, username…"
+            class="search-input"
+          />
+          <button *ngIf="searchTerm" class="clear-input" (click)="searchTerm = ''; applyFilters()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <app-data-table
+        [data]="paginatedLogs"
+        [columns]="tableColumns"
+        [loading]="loading"
+        [pagination]="tablePagination"
+        [rowClickable]="true"
+        emptyMessage="No query logs match your filters."
+        emptyIcon="filter_list"
+        (rowClick)="onLogClick($event)"
+        (actionClick)="onTableAction($event)"
+        (pageChange)="onPageChange($event)"
+      ></app-data-table>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && !error && logs.length === 0" class="empty-state">
+    <mat-icon>insights</mat-icon>
+    <h2>No Data Yet</h2>
+    <p>Start using Copilot Chat to see analytics here. Query performance, table usage and trends will appear as you interact with your data.</p>
+  </div>
+
+  <!-- Detail Modal -->
+  <div *ngIf="selectedLog" class="modal-backdrop" (click)="closeDetail()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Query Detail</h3>
+        <div class="modal-header-actions">
+          <button *ngIf="selectedLog.generated_sql" class="analyze-btn" (click)="onAnalyzeQuery(selectedLog)" title="Analyze in Data Analytics">
+            <mat-icon>insights</mat-icon>
+            Analyze
+          </button>
+          <button class="modal-close" (click)="closeDetail()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <!-- Status & Time -->
+        <div class="detail-top">
+          <span class="badge" [class.badge-success]="selectedLog.success" [class.badge-danger]="!selectedLog.success">
+            {{ selectedLog.success ? 'Success' : 'Failed' }}
+          </span>
+          <span class="detail-time">{{ selectedLog.total_time_formatted }} · {{ selectedLog.row_count }} rows</span>
+        </div>
+
+        <!-- User Query -->
+        <div class="detail-section">
+          <label>User Query</label>
+          <p class="detail-text">{{ selectedLog.user_query }}</p>
+        </div>
+
+        <!-- Generated SQL -->
+        <div class="detail-section" *ngIf="selectedLog.generated_sql">
+          <label>Generated SQL</label>
+          <pre class="detail-sql">{{ selectedLog.generated_sql }}</pre>
+        </div>
+
+        <!-- Error -->
+        <div class="detail-section" *ngIf="selectedLog.error_message">
+          <label>Error</label>
+          <p class="detail-error">{{ selectedLog.error_message }}</p>
+        </div>
+
+        <!-- Meta Grid -->
+        <div class="detail-grid">
+          <div class="detail-cell">
+            <label>User</label>
+            <span>{{ selectedLog.github_username || '—' }}</span>
+          </div>
+          <div class="detail-cell">
+            <label>Tables Used</label>
+            <span>{{ selectedLog.tables_used.length ? selectedLog.tables_used.join(', ') : '—' }}</span>
+          </div>
+          <div class="detail-cell">
+            <label>Timestamp</label>
+            <span>{{ selectedLog.timestamp | date:'medium' }}</span>
+          </div>
+        </div>
+
+        <!-- Phase Timings -->
+        <div class="detail-section" *ngIf="selectedLog.phase_timings.length > 0">
+          <label>Pipeline Phases</label>
+          <div class="phase-list">
+            <div class="phase-row" *ngFor="let p of selectedLog.phase_timings">
+              <span class="phase-name">{{ p.phase.replace('_', ' ') }}</span>
+              <div class="phase-bar-wrap">
+                <div class="phase-bar" [style.width.%]="getPhasePercent(p)"></div>
+              </div>
+              <span class="phase-time">{{ p.duration_formatted }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Token Usage & Cost -->
+        <div class="detail-section" *ngIf="selectedLog.token_usage && selectedLog.token_usage.total_tokens > 0">
+          <label>LLM Token Usage & Cost</label>
+          <div class="detail-grid">
+            <div class="detail-cell">
+              <label>Prompt Tokens</label>
+              <span>{{ selectedLog.token_usage.prompt_tokens | number }}</span>
+            </div>
+            <div class="detail-cell">
+              <label>Completion Tokens</label>
+              <span>{{ selectedLog.token_usage.completion_tokens | number }}</span>
+            </div>
+            <div class="detail-cell">
+              <label>Total Tokens</label>
+              <span>{{ selectedLog.token_usage.total_tokens | number }}</span>
+            </div>
+            <div class="detail-cell">
+              <label>LLM Calls</label>
+              <span>{{ selectedLog.token_usage.llm_calls }}</span>
+            </div>
+            <div class="detail-cell">
+              <label>Est. Cost</label>
+              <span>{{ getEstimatedCost(selectedLog.token_usage) }}</span>
+            </div>
+            <div class="detail-cell">
+              <label>Model</label>
+              <span>{{ selectedLog.token_usage.model || 'unknown' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

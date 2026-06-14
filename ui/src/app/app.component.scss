@@ -1,0 +1,60 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── App Root Container ── */
+.app-root {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  overflow: hidden;
+  background-color: var(--app-bg, #ffffff);
+  color: var(--app-text, #1a1a1a);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.app-root.dark-theme {
+  --app-bg: #0f1923;
+  --app-text: #e0e7ef;
+  --app-muted: #7a8fa5;
+  --app-border: #1e2d3d;
+  --app-surface: #162030;
+  --app-card-bg: #162030;
+  --app-input-bg: #1a2736;
+  --app-input-border: #2a3f55;
+  --app-hover: #1e2d3d;
+}
+
+// Force hidden to work with flex containers
+.hidden {
+  display: none !important;
+}
+
+// Minimal overrides, Tailwind handles most styling
+::ng-deep {
+  .mat-mdc-snack-bar-container {
+    &.success-snackbar {
+      @apply bg-green-600 text-white rounded-lg shadow-lg;
+    }
+
+    &.error-snackbar {
+      @apply bg-red-600 text-white rounded-lg shadow-lg;
+    }
+
+    &.info-snackbar {
+      @apply bg-blue-600 text-white rounded-lg shadow-lg;
+    }
+  }
+
+  mat-icon {
+    @apply select-none;
+  }
+}
+
+// Smooth transitions
+* {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}

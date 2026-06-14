@@ -1,0 +1,187 @@
+<div class="h-full flex flex-col bg-white rounded-lg border border-gray-200 overflow-hidden">
+  <!-- Header (optional) -->
+  <div *ngIf="title" class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+    <div class="flex items-center space-x-2">
+      <span class="text-sm font-semibold text-gray-800">{{ title }}</span>
+      <span *ngIf="subtitle" class="text-xs text-gray-500">{{ subtitle }}</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button
+        *ngIf="showDownload && data.length > 0"
+        (click)="onDownload()"
+        class="flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+      >
+        <mat-icon class="!text-sm">download</mat-icon>
+        <span>Export</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="flex-1 flex items-center justify-center py-12">
+    <div class="text-center">
+      <mat-spinner diameter="32" class="mx-auto"></mat-spinner>
+      <p class="text-sm text-gray-500 mt-3">Loading data...</p>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="flex-1 flex items-center justify-center py-12">
+    <div class="text-center">
+      <div class="w-12 h-12 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-3">
+        <mat-icon class="text-red-500 !text-2xl">error_outline</mat-icon>
+      </div>
+      <p class="text-sm text-red-600 mb-3">{{ error }}</p>
+      <button 
+        (click)="onRetry()"
+        class="text-xs text-blue-600 hover:text-blue-800 font-medium"
+      >
+        Try again
+      </button>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && !error && data.length === 0" class="flex-1 flex items-center justify-center py-12">
+    <div class="text-center">
+      <div class="w-12 h-12 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-3">
+        <mat-icon class="text-gray-400 !text-2xl">{{ emptyIcon }}</mat-icon>
+      </div>
+      <p class="text-sm text-gray-500">{{ emptyMessage }}</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div *ngIf="!loading && !error && data.length > 0" class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 overflow-x-auto overflow-y-auto">
+      <table class="text-xs" style="table-layout: auto; min-width: 100%; width: max-content;">
+        <!-- Table Header -->
+        <thead class="sticky top-0 z-10 bg-gray-100 border-b border-gray-200">
+          <tr>
+            <th 
+              *ngFor="let column of columns"
+              [style.width]="column.width || 'auto'"
+              [class]="'px-3 py-2.5 font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap ' + 
+                       (getColumnAlign(column) === 'right' ? 'text-right' : 
+                        getColumnAlign(column) === 'center' ? 'text-center' : 'text-left')"
+            >
+              {{ column.label }}
+            </th>
+          </tr>
+        </thead>
+        
+        <!-- Table Body -->
+        <tbody class="divide-y divide-gray-100 bg-white">
+          <tr 
+            *ngFor="let row of data; let i = index"
+            [class]="'transition-colors ' + 
+                     (rowClickable ? 'cursor-pointer hover:bg-blue-50' : 'hover:bg-gray-50')"
+            (click)="onRowClick(row)"
+          >
+            <td 
+              *ngFor="let column of columns"
+              [class]="'px-3 py-2.5 ' + 
+                       (getColumnAlign(column) === 'right' ? 'text-right' : 
+                        getColumnAlign(column) === 'center' ? 'text-center' : 'text-left')"
+            >
+              <!-- Status Column -->
+              <ng-container *ngIf="column.type === 'status'">
+                <div class="flex items-center" [class.justify-center]="getColumnAlign(column) === 'center'">
+                  <mat-icon 
+                    [class]="'!text-sm ' + (isSuccess(column, row) ? 'text-green-500' : 'text-red-500')"
+                  >
+                    {{ getStatusIcon(column, row) }}
+                  </mat-icon>
+                </div>
+              </ng-container>
+
+              <!-- Text/Number/Date Column -->
+              <ng-container *ngIf="column.type !== 'status' && column.type !== 'actions'">
+                <span 
+                  class="text-gray-700"
+                  [title]="row[column.key]"
+                >
+                  {{ formatCellValue(column, row) }}
+                </span>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container *ngIf="column.type === 'actions'">
+                <button
+                  *ngIf="!column.actionVisible || column.actionVisible(row)"
+                  (click)="onActionClick($event, row, column)"
+                  [title]="column.actionTooltip || ''"
+                  class="w-7 h-7 flex items-center justify-center text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors"
+                >
+                  <mat-icon class="!text-lg">{{ column.actionIcon || 'more_vert' }}</mat-icon>
+                </button>
+              </ng-container>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div 
+      *ngIf="pagination?.enabled" 
+      class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-gray-200 bg-gray-50 text-xs"
+    >
+      <!-- Rows per page -->
+      <div class="flex items-center gap-2">
+        <span class="text-gray-500 whitespace-nowrap">Rows per page:</span>
+        <select 
+          [ngModel]="pagination!.pageSize"
+          (ngModelChange)="onPageSizeChange($event)"
+          class="w-16 px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
+        >
+          <option *ngFor="let size of pagination!.pageSizeOptions" [ngValue]="size">{{ size }}</option>
+        </select>
+      </div>
+
+      <!-- Page info -->
+      <div class="text-gray-500 whitespace-nowrap">
+        {{ startRow }}-{{ endRow }} of {{ pagination!.totalCount }}
+      </div>
+
+      <!-- Navigation buttons -->
+      <div class="flex items-center gap-0.5">
+        <button
+          (click)="firstPage()"
+          [disabled]="pagination!.currentPage === 1"
+          class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="First page"
+        >
+          <mat-icon class="!text-base">first_page</mat-icon>
+        </button>
+        <button
+          (click)="previousPage()"
+          [disabled]="pagination!.currentPage === 1"
+          class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Previous page"
+        >
+          <mat-icon class="!text-base">chevron_left</mat-icon>
+        </button>
+        <span class="px-2 text-gray-600 font-medium">
+          {{ pagination!.currentPage }} / {{ totalPages }}
+        </span>
+        <button
+          (click)="nextPage()"
+          [disabled]="pagination!.currentPage >= totalPages"
+          class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Next page"
+        >
+          <mat-icon class="!text-base">chevron_right</mat-icon>
+        </button>
+        <button
+          (click)="lastPage()"
+          [disabled]="pagination!.currentPage >= totalPages"
+          class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Last page"
+        >
+          <mat-icon class="!text-base">last_page</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

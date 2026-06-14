@@ -1,0 +1,270 @@
+/* Standard Data Table Styles */
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Custom scrollbar for table - supports both vertical and horizontal scrolling */
+.overflow-auto,
+.overflow-x-auto,
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.overflow-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Horizontal scrollbar indicator */
+.overflow-x-auto::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
+/* Table row alternating background (optional) */
+tbody tr:nth-child(even) {
+  // background-color: #f9fafb;
+}
+
+/* Table styles */
+table {
+  table-layout: auto;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Cell styles */
+th, td {
+  min-width: 120px;
+  max-width: 350px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Fixed height rows - prevent shrinking */
+tbody tr {
+  height: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+thead tr {
+  height: 40px;
+  min-height: 40px;
+}
+
+/* Status icons */
+mat-icon {
+  vertical-align: middle;
+}
+
+/* ── Professional Table Colors ── */
+
+/* Distinctive table header — clean light theme */
+table thead,
+table thead th {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
+/* Subtle alternating rows */
+table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+/* Odd rows stay white */
+table tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+/* Clear hover — neutral gray avoids clashing with colored badges */
+table tbody tr:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Text stays fully readable on hover */
+table tbody tr:hover td,
+table tbody tr:hover td span {
+  color: #0f172a !important;
+}
+
+/* Status icons stay vivid on hover */
+table tbody tr:hover td mat-icon.text-green-500 {
+  color: #16a34a !important;
+}
+table tbody tr:hover td mat-icon.text-red-500 {
+  color: #dc2626 !important;
+}
+
+/* ── Dark Mode ── */
+:host-context(body.dark-theme) {
+  table {
+    thead,
+    thead th {
+      background-color: #0c1829 !important;
+      color: #8899b0 !important;
+      border-bottom-color: #1c2b3d !important;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    tbody {
+      tr:nth-child(odd) {
+        background-color: #111d2e !important;
+      }
+
+      tr:nth-child(even) {
+        background-color: #162033 !important;
+      }
+
+      td {
+        color: #c8d6e5 !important;
+        border-bottom: 1px solid #1c2b3d !important;
+      }
+
+      tr:hover {
+        background-color: #1a3050 !important;
+      }
+
+      tr:hover td,
+      tr:hover td span {
+        color: #e8f0fa !important;
+      }
+
+      tr:hover td mat-icon.text-green-500 {
+        color: #4ade80 !important;
+      }
+      tr:hover td mat-icon.text-red-500 {
+        color: #f87171 !important;
+      }
+    }
+  }
+
+  /* Pagination area */
+  .border-t {
+    border-color: #1e2d3d !important;
+  }
+
+  /* Outer container dark mode */
+  .bg-white {
+    background-color: #111d2e !important;
+  }
+
+  .border-gray-200 {
+    border-color: #1c2b3d !important;
+  }
+
+  .bg-gray-50 {
+    background-color: #0c1829 !important;
+  }
+
+  .bg-gray-100 {
+    background-color: #0c1829 !important;
+  }
+
+  .text-gray-600 {
+    color: #93c5fd !important;
+  }
+
+  .text-gray-500 {
+    color: #94a3b8 !important;
+  }
+
+  .text-gray-700 {
+    color: #e2e8f0 !important;
+  }
+
+  .text-gray-800 {
+    color: #f1f5f9 !important;
+  }
+
+  .text-gray-400 {
+    color: #64748b !important;
+  }
+
+  .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #1e2d3d !important;
+  }
+
+  /* Pagination select dark mode */
+  select {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+  }
+
+  /* Hover overrides */
+  .hover\\:bg-blue-50:hover {
+    background-color: #1a3050 !important;
+  }
+
+  .hover\\:bg-gray-50:hover {
+    background-color: #1a3050 !important;
+  }
+
+  .hover\\:bg-gray-200:hover {
+    background-color: #334155 !important;
+  }
+
+  .hover\\:bg-gray-100:hover {
+    background-color: #334155 !important;
+  }
+
+  /* Action button dark mode */
+  .text-indigo-500 {
+    color: #818cf8 !important;
+  }
+
+  .hover\\:bg-indigo-50:hover {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+  }
+
+  /* Scrollbar */
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    scrollbar-color: #2a3f55 #0f1923;
+
+    &::-webkit-scrollbar-track {
+      background: #0f1923;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #2a3f55;
+      &:hover {
+        background: #3a5470;
+      }
+    }
+    &::-webkit-scrollbar-corner {
+      background: #0f1923;
+    }
+  }
+}

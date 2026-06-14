@@ -1,0 +1,133 @@
+# AI-Powered SQL Chatbot - Root .gitignore
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.github/
+
+# Secrets / Tokens (DPAPI-encrypted or plaintext — never commit)
+**/.copilot_token.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+server/venv/
+server/env/
+server/ENV/
+server/.venv
+server/logs/
+
+# Node
+ui/node_modules/
+ui/dist/
+ui/.angular/
+ui/ui-context/
+
+# Stale UI copy (canonical UI is in ui/, not server/ui/)
+server/ui/
+
+
+# Vector memory (regenerated at runtime)
+**/vector_memory/*.bin
+**/vector_memory/*.json
+
+# Embedding cache (regenerated at startup from schema_hints.json)
+server/data/embedding_cache/
+
+# Robot repos (cloned for analysis, not part of the project)
+_robot_repos/
+
+# Device reports (large data dumps)
+device_reports/
+
+# IDEs
+.idea/
+.vscode/*
+!.vscode/mcp.json
+.cursor/*
+!.cursor/mcp.json
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+docs/
+server/logs/
+
+# Hackathon/local submission artifacts (upload media separately, not in code repo)
+HACKATHON_*SCRIPT.md
+demo/create_demo_video.py
+demo/video/
+demo/copilot-context.txt
+demo/**/copilot-context.txt
+*.mp4
+*.wav
+*.mp3
+*.webm
+*.mov
+*.mkv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+ui/coverage/
+
+# Test scripts and results
+_*.py
+_*.txt
+test_*.py
+test_*.log
+test_*.json
+*_results.txt
+*_results.json
+*_output.txt
+*_output.log
+*_stdout.log
+terminallog.txt
+
+# Backups
+*.bak
+*.backup
+
+# Database (runtime SQLite, learning stores)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+server/app/data/learning/
+
+# Secrets (extra safety)
+*secret*
+*credentials*
+!*example*
+
+# Local dev tools (downloaded binaries)
+server/tools/
+

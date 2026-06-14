@@ -1,0 +1,258 @@
+<!-- Data Analytics Page -->
+<div class="analytics-page" [class.dark]="themeService.isDarkMode">
+  <!-- Header -->
+  <div class="analytics-header">
+    <div class="header-left">
+      <button class="back-btn" (click)="onBack()" matTooltip="Go back">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div class="header-title">
+        <mat-icon class="title-icon">insights</mat-icon>
+        <div>
+          <h1>Data Analytics</h1>
+          <p *ngIf="userQuery" class="query-hint">{{ userQuery }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <!-- Download Buttons -->
+      <button class="download-btn csv" (click)="downloadCSV()" matTooltip="Download CSV">
+        <mat-icon>download</mat-icon>
+        <span>CSV</span>
+      </button>
+      <button class="download-btn excel" (click)="downloadExcel()" matTooltip="Download Excel">
+        <mat-icon>table_view</mat-icon>
+        <span>Excel</span>
+      </button>
+      <!-- Theme Selector -->
+      <div class="theme-selector">
+        <button *ngFor="let t of colorThemes"
+          (click)="setTheme(t.name)"
+          [class.active]="colorTheme === t.name"
+          class="theme-dot"
+          [style.background]="t.preview"
+          [matTooltip]="t.name">
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Data State -->
+  <div *ngIf="!data.length && !queryRunning" class="empty-state">
+    <mat-icon class="empty-icon">analytics</mat-icon>
+    <h2>No Data Available</h2>
+    <p>Go to Chat Query and run a query, then click the analytics button to view insights.</p>
+    <button class="back-link" (click)="onBack()">
+      <mat-icon>arrow_back</mat-icon>
+      <span>Go Back</span>
+    </button>
+  </div>
+
+  <!-- Loading State (auto-run from logs) -->
+  <div *ngIf="!data.length && queryRunning" class="empty-state">
+    <mat-icon class="empty-icon spin">sync</mat-icon>
+    <h2>Running Query...</h2>
+    <p>Executing SQL and loading analytics data</p>
+  </div>
+
+  <!-- Analytics Content -->
+  <div *ngIf="data.length" class="analytics-content">
+    <!-- Summary Cards Row -->
+    <div class="summary-cards">
+      <div class="summary-card blue">
+        <mat-icon>table_rows</mat-icon>
+        <div><span class="card-value">{{ totalRows }}</span><span class="card-label">Total Rows</span></div>
+      </div>
+      <div class="summary-card purple">
+        <mat-icon>view_column</mat-icon>
+        <div><span class="card-value">{{ totalColumns }}</span><span class="card-label">Columns</span></div>
+      </div>
+      <div class="summary-card green">
+        <mat-icon>numbers</mat-icon>
+        <div><span class="card-value">{{ numericColumns.length }}</span><span class="card-label">Numeric</span></div>
+      </div>
+      <div class="summary-card amber">
+        <mat-icon>text_fields</mat-icon>
+        <div><span class="card-value">{{ stringColumns.length }}</span><span class="card-label">Text</span></div>
+      </div>
+    </div>
+
+    <!-- Editable SQL Query -->
+    <div class="chart-panel query-editor-panel">
+      <div class="chart-header">
+        <div class="chart-title">
+          <mat-icon>code</mat-icon>
+          <span>SQL Query</span>
+        </div>
+        <div class="query-actions">
+          <button class="run-query-btn" (click)="runEditedQuery()" [disabled]="queryRunning || !editableSql.trim()">
+            <mat-icon *ngIf="!queryRunning">play_arrow</mat-icon>
+            <mat-icon *ngIf="queryRunning" class="spin">sync</mat-icon>
+            <span>{{ queryRunning ? 'Running...' : 'Run Query' }}</span>
+          </button>
+          <button class="reset-query-btn" (click)="editableSql = generatedSql" matTooltip="Reset to original" [disabled]="editableSql === generatedSql">
+            <mat-icon>restart_alt</mat-icon>
+          </button>
+        </div>
+      </div>
+      <div class="query-editor-body">
+        <textarea class="sql-textarea" [(ngModel)]="editableSql" rows="4" spellcheck="false" placeholder="Enter SQL query..."></textarea>
+        <div *ngIf="queryError" class="query-error">
+          <mat-icon>error_outline</mat-icon>
+          <span>{{ queryError }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1: Main Chart -->
+    <div class="chart-panel main-chart-panel">
+      <div class="chart-header">
+        <div class="chart-title">
+          <mat-icon>bar_chart</mat-icon>
+          <span>Data Visualization</span>
+        </div>
+        <div class="chart-controls">
+          <!-- Chart Type Toggles -->
+          <div class="chart-type-group">
+            <button *ngFor="let ct of chartTypes"
+              (click)="setMainChartType(ct.value)"
+              [class.active]="mainChartType === ct.value"
+              class="chart-type-btn"
+              [matTooltip]="ct.label">
+              <mat-icon>{{ ct.icon }}</mat-icon>
+            </button>
+          </div>
+          <!-- Column Selectors -->
+          <select [(ngModel)]="labelColumn" (ngModelChange)="onMainConfigChange()" class="chart-select">
+            <option value="" disabled>Label...</option>
+            <option *ngFor="let c of columns" [value]="c">{{ c }}</option>
+          </select>
+          <select [(ngModel)]="valueColumn" (ngModelChange)="onMainConfigChange()" class="chart-select">
+            <option value="" disabled>Value...</option>
+            <option value="__count__">Count (frequency)</option>
+            <option *ngFor="let c of numericColumns" [value]="c">{{ c }}</option>
+          </select>
+          <select [(ngModel)]="dataLimit" (ngModelChange)="onMainConfigChange()" class="chart-select narrow">
+            <option [value]="10">10</option>
+            <option [value]="20">20</option>
+            <option [value]="50">50</option>
+            <option [value]="100">100</option>
+          </select>
+        </div>
+      </div>
+      <div class="chart-body" style="height: 360px;">
+        <canvas #mainChart></canvas>
+      </div>
+    </div>
+
+    <!-- Map View — shown only when results contain geometry (PostGIS) -->
+    <div class="chart-panel map-panel" *ngIf="hasGeoData">
+      <app-map-view [rows]="data"></app-map-view>
+    </div>
+
+
+
+    <!-- Column Statistics Table -->
+    <div class="chart-panel stats-panel">
+      <div class="chart-header">
+        <div class="chart-title">
+          <mat-icon>assessment</mat-icon>
+          <span>Column Statistics</span>
+        </div>
+      </div>
+      <div class="stats-table-wrap">
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th class="right">Non-Null</th>
+              <th class="right">Unique</th>
+              <th class="right">Min</th>
+              <th class="right">Max</th>
+              <th class="right">Avg</th>
+              <th>Top Values</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of columnStats">
+              <td class="col-name">{{ s.column }}</td>
+              <td>
+                <span [class]="'type-badge ' + s.type">{{ s.type }}</span>
+              </td>
+              <td class="right">{{ s.count }}</td>
+              <td class="right">{{ s.unique }}</td>
+              <td class="right">{{ s.min != null ? (s.min | number:'1.0-2') : '-' }}</td>
+              <td class="right">{{ s.max != null ? (s.max | number:'1.0-2') : '-' }}</td>
+              <td class="right">{{ s.avg != null ? (s.avg | number:'1.0-2') : '-' }}</td>
+              <td class="top-vals">
+                <span *ngFor="let tv of s.topValues; let last = last" class="top-val">
+                  {{ tv.value }}<span class="tv-count">({{ tv.count }})</span>{{ last ? '' : ', ' }}
+                </span>
+                <span *ngIf="!s.topValues">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Raw Data Preview -->
+    <div class="chart-panel data-preview">
+      <div class="chart-header">
+        <div class="chart-title">
+          <mat-icon>grid_on</mat-icon>
+          <span>Data Preview</span>
+          <span class="preview-count">({{ data.length }} rows)</span>
+        </div>
+        <div class="header-actions">
+          <button class="download-btn csv small" (click)="downloadCSV()" matTooltip="Download CSV">
+            <mat-icon>download</mat-icon> CSV
+          </button>
+          <button class="download-btn excel small" (click)="downloadExcel()" matTooltip="Download Excel">
+            <mat-icon>table_view</mat-icon> Excel
+          </button>
+        </div>
+      </div>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th *ngFor="let col of columns">{{ col }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of paginatedData">
+              <td *ngFor="let col of columns">{{ row[col] }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Pagination Footer -->
+      <div class="preview-pagination">
+        <div class="pagination-left">
+          <span class="pagination-label">Rows per page:</span>
+          <select [ngModel]="previewPageSize" (ngModelChange)="onPreviewPageSizeChange($event)" class="pagination-select">
+            <option *ngFor="let s of previewPageSizes" [ngValue]="s">{{ s }}</option>
+          </select>
+        </div>
+        <span class="pagination-info">{{ previewStartRow }}–{{ previewEndRow }} of {{ data.length }}</span>
+        <div class="pagination-nav">
+          <button (click)="onPreviewFirstPage()" [disabled]="previewPage === 1" class="pagination-btn" title="First page">
+            <mat-icon>first_page</mat-icon>
+          </button>
+          <button (click)="onPreviewPrevPage()" [disabled]="previewPage === 1" class="pagination-btn" title="Previous page">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <span class="pagination-current">{{ previewPage }} / {{ previewTotalPages }}</span>
+          <button (click)="onPreviewNextPage()" [disabled]="previewPage >= previewTotalPages" class="pagination-btn" title="Next page">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+          <button (click)="onPreviewLastPage()" [disabled]="previewPage >= previewTotalPages" class="pagination-btn" title="Last page">
+            <mat-icon>last_page</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

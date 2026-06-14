@@ -1,0 +1,33 @@
+# Query Bench demo database (PostGIS + pgvector).
+#
+# Usage (from the demo/ directory):
+#   $env:POSTGRES_PASSWORD = "<choose-a-strong-password>"   # PowerShell
+#   docker compose up --build -d
+#
+# Then connect Query Bench to:
+#   host=localhost  port=5433  database=querybench_demo  user=querybench
+#
+# The password is required from the environment — there is no default baked in,
+# so no credential is ever committed to source control.
+
+services:
+  demo-db:
+    build: .
+    image: querybench-demo-db:latest
+    environment:
+      POSTGRES_USER: querybench
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment before running compose}
+      POSTGRES_DB: querybench_demo
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - demo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querybench -d querybench_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  demo-db-data:

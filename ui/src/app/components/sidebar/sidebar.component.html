@@ -1,0 +1,104 @@
+<div class="sidebar-container"
+  [class.collapsed]="collapsed"
+  [class.dark]="themeService.isDarkMode">
+  <!-- Logo Section with Toggle -->
+  <div class="sidebar-header">
+    <div class="header-inner" [class.centered]="collapsed">
+      <button 
+        (click)="toggleCollapse()" 
+        class="logo-btn"
+        [matTooltip]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        [matTooltipPosition]="collapsed ? 'right' : 'below'"
+      >
+        <mat-icon class="text-white !text-base !w-5 !h-5 flex items-center justify-center">terminal</mat-icon>
+      </button>
+      <div *ngIf="!collapsed" class="logo-text">
+        <h1>Query Bench</h1>
+        <p>AI-Powered SQL</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Items -->
+  <nav class="sidebar-nav" [class.narrow]="collapsed">
+    <!-- Main section -->
+    <div class="nav-section">
+      <span *ngIf="!collapsed" class="nav-section-label">Main</span>
+      <ng-container *ngFor="let item of navigationItems">
+        <button
+          *ngIf="item.section === 'main'"
+          (click)="selectView(item.id)"
+          [matTooltip]="collapsed ? item.label : ''"
+          matTooltipPosition="right"
+          class="nav-item"
+          [class.active]="activeView === item.id"
+          [class.collapsed-item]="collapsed"
+        >
+          <div class="nav-icon-wrap" [class.active-wrap]="activeView === item.id">
+            <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+          </div>
+          <span *ngIf="!collapsed" class="nav-label">{{ item.label }}</span>
+        </button>
+      </ng-container>
+    </div>
+
+    <!-- Tools section -->
+    <div class="nav-section">
+      <span *ngIf="!collapsed" class="nav-section-label">Tools</span>
+      <div *ngIf="collapsed" class="nav-divider"></div>
+      <ng-container *ngFor="let item of navigationItems">
+        <button
+          *ngIf="item.section === 'tools'"
+          (click)="selectView(item.id)"
+          [matTooltip]="collapsed ? item.label : ''"
+          matTooltipPosition="right"
+          class="nav-item"
+          [class.active]="activeView === item.id"
+          [class.collapsed-item]="collapsed"
+        >
+          <div class="nav-icon-wrap" [class.active-wrap]="activeView === item.id">
+            <mat-icon class="nav-icon">{{ item.icon }}</mat-icon>
+          </div>
+          <span *ngIf="!collapsed" class="nav-label">{{ item.label }}</span>
+        </button>
+      </ng-container>
+    </div>
+  </nav>
+
+  <!-- Theme Toggle -->
+  <div class="theme-toggle-section" [class.collapsed-toggle]="collapsed">
+    <button
+      class="theme-toggle-btn"
+      [class.collapsed-btn]="collapsed"
+      (click)="themeService.toggleDarkMode()"
+      [matTooltip]="collapsed ? (themeService.isDarkMode ? 'Light mode' : 'Dark mode') : ''"
+      matTooltipPosition="right"
+    >
+      <mat-icon [class]="collapsed ? '!text-lg !w-5 !h-5' : '!text-sm'">{{ themeService.isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      <span *ngIf="!collapsed">{{ themeService.isDarkMode ? 'Light mode' : 'Dark mode' }}</span>
+    </button>
+  </div>
+
+  <!-- Connection Status -->
+  <div class="sidebar-footer">
+    <!-- Expanded view -->
+    <div *ngIf="!collapsed" class="connection-card" [class.connected]="connected" [class.disconnected]="!connected">
+      <div class="connection-status-row">
+        <span class="status-dot" [class.dot-green]="connected" [class.dot-red]="!connected"></span>
+        <span class="status-label">{{ connected ? 'Connected' : 'Disconnected' }}</span>
+      </div>
+      <p class="connection-db">{{ database || 'No database' }}</p>
+    </div>
+    
+    <!-- Collapsed view - just icon -->
+    <div *ngIf="collapsed" class="connection-icon-wrap">
+      <div 
+        [matTooltip]="connected ? 'Connected: ' + database : 'Disconnected'"
+        matTooltipPosition="right"
+        class="connection-icon" [class.connected]="connected" [class.disconnected]="!connected"
+      >
+        <span class="status-dot" [class.dot-green]="connected" [class.dot-red]="!connected"></span>
+      </div>
+    </div>
+  </div>
+</div>

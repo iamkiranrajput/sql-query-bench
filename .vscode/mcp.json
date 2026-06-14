@@ -1,0 +1,17 @@
+{
+	"_comment": "Database credentials are read from server/.env (PRESET_DB_HOST / PRESET_DB_PORT / PRESET_DB_DATABASE / PRESET_DB_USERNAME / PRESET_DB_PASSWORD). Do NOT add live credentials to this file — it is tracked in git as a shared template only.",
+	"servers": {
+		"sql-query-tool": {
+			"type": "stdio",
+			"command": "python",
+			"args": [
+				"C:\\Users\\kirrajpu\\Downloads\\sql-query-tool\\server\\mcp_stdio_server.py"
+			],
+			"env": {
+				"PYTHONDONTWRITEBYTECODE": "1",
+				"PYTHONIOENCODING": "utf-8"
+			}
+		}
+	},
+	"inputs": []
+}

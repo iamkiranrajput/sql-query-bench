@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "sql-query-tool": {
+            "command": "python",
+            "args": [
+                "server/mcp_stdio_server.py"
+            ],
+            "env": {
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "PYTHONIOENCODING": "utf-8"
+            }
+        }
+    }
+}

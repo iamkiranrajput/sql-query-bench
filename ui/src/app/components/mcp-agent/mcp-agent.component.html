@@ -1,0 +1,635 @@
+<div class="mcp-agent-container">
+  <!-- ===== HISTORY SIDEBAR ===== -->
+  <div class="history-sidebar" [class.collapsed]="!showHistory">
+    <div class="sidebar-inner" *ngIf="showHistory">
+      <!-- Sidebar Header -->
+      <div class="sidebar-top">
+        <span class="sidebar-heading">Chat History</span>
+        <div class="sidebar-top-actions">
+          <button class="sidebar-action-btn" (click)="startNewChat()" matTooltip="New chat">
+            <mat-icon class="!text-[18px]">add</mat-icon>
+          </button>
+          <button class="sidebar-action-btn" (click)="toggleHistory()" matTooltip="Close sidebar">
+            <mat-icon class="!text-[18px]">menu_open</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Session Stats Mini -->
+      <div class="sidebar-stats">
+        <div class="sidebar-stat">
+          <mat-icon class="!text-[12px]">chat</mat-icon>
+          <span>{{ sessions.length }} session{{ sessions.length !== 1 ? 's' : '' }}</span>
+        </div>
+        <div class="sidebar-stat">
+          <mat-icon class="!text-[12px]">token</mat-icon>
+          <span>{{ formatTokenCount(totalTokens) }} tokens</span>
+        </div>
+        <div class="sidebar-stat" *ngIf="totalCost > 0">
+          <mat-icon class="!text-[12px]">payments</mat-icon>
+          <span>{{ formatCostDisplay(totalCost) }}</span>
+        </div>
+      </div>
+
+      <!-- Session List -->
+      <div class="sidebar-sessions">
+        <div *ngIf="sessions.length === 0" class="sidebar-empty">
+          <p>No previous chats</p>
+        </div>
+
+        <div
+          *ngFor="let session of sessions"
+          class="sidebar-session-item"
+          [class.active]="isActiveSession(session.id)"
+          (click)="selectSession(session.id)"
+        >
+          <div class="session-top-row">
+            <mat-icon class="session-icon !text-[16px]">{{ session.mode === 'copilot' ? 'smart_toy' : 'cloud' }}</mat-icon>
+
+            <!-- Inline editing mode -->
+            <ng-container *ngIf="editingSessionId === session.id; else displayTitle">
+              <input
+                class="session-edit-input"
+                [(ngModel)]="editingSessionName"
+                (blur)="saveSessionName(session.id)"
+                (keydown.enter)="saveSessionName(session.id)"
+                (keydown.escape)="cancelEditingSession()"
+                (click)="$event.stopPropagation()"
+              />
+            </ng-container>
+            <ng-template #displayTitle>
+              <span class="session-title" [title]="session.title">{{ session.title }}</span>
+            </ng-template>
+
+            <!-- Three-dot menu -->
+            <button
+              class="session-more-btn"
+              [matMenuTriggerFor]="sessionMenu"
+              (click)="$event.stopPropagation()"
+              matTooltip="Options"
+            >
+              <mat-icon class="!text-[16px]">more_vert</mat-icon>
+            </button>
+            <mat-menu #sessionMenu="matMenu" class="session-context-menu" xPosition="before">
+              <button mat-menu-item (click)="startEditingSession(session.id, session.title)">
+                <mat-icon>drive_file_rename_outline</mat-icon>
+                <span>Rename</span>
+              </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="onDeleteSession(session.id)" class="delete-menu-item">
+                <mat-icon>delete_outline</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
+          </div>
+
+          <!-- Meta row -->
+          <div class="session-meta">
+            <span>{{ formatSessionDate(session.lastActiveAt) }}</span>
+            <span>&middot;</span>
+            <span>{{ session.messageCount }} msg{{ session.messageCount !== 1 ? 's' : '' }}</span>
+            <span *ngIf="session.queryCount">&middot;</span>
+            <span *ngIf="session.queryCount">{{ session.queryCount }} queries</span>
+          </div>
+
+          <!-- Session tags -->
+          <div class="session-tags">
+            <span class="session-tag mode-tag">{{ session.mode }}</span>
+            <span class="session-tag model-tag" *ngIf="session.model">{{ session.model }}</span>
+            <span class="session-tag token-tag" *ngIf="session.totalTokens">
+              {{ formatTokenCount(session.totalTokens) }} tok
+            </span>
+            <span class="session-tag token-tag" *ngIf="session.totalCost">
+              {{ formatCostDisplay(session.totalCost) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Bottom -->
+      <div class="sidebar-bottom">
+        <button class="sidebar-bottom-btn danger" (click)="clearAllHistory()"
+                *ngIf="sessions.length > 0">
+          <mat-icon class="!text-[16px]">delete_sweep</mat-icon>
+          <span>Clear All</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History sidebar backdrop for mobile -->
+  <div class="sidebar-backdrop" *ngIf="showHistory" (click)="toggleHistory()"></div>
+
+  <!-- Main Chat Area -->
+  <div class="chat-area">
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="header-left">
+        <button
+          *ngIf="!showHistory"
+          class="sidebar-open-btn"
+          (click)="toggleHistory()"
+          matTooltip="Open history"
+        >
+          <mat-icon class="!text-[20px]">menu</mat-icon>
+        </button>
+        <mat-icon class="header-icon">smart_toy</mat-icon>
+        <div>
+          <h3>Copilot Chat</h3>
+          <span class="header-sub">
+            GitHub Copilot &mdash; {{ selectedModel }}
+          </span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <!-- Config button -->
+        <button
+          class="btn btn-icon"
+          (click)="openConfigDialog()"
+          [matTooltip]="copilotConfigured ? 'Copilot configured ✓' : 'Configure GitHub token'"
+          [class.configured]="copilotConfigured"
+        >
+          <mat-icon>{{ copilotConfigured ? 'check_circle' : 'settings' }}</mat-icon>
+        </button>
+
+        <button class="btn btn-icon" (click)="startNewChat()" matTooltip="New chat">
+          <mat-icon>add_circle_outline</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" #chatContainer>
+      <div class="messages-inner">
+      <!-- Empty state -->
+      <div *ngIf="!messages.length && !isLoading" class="empty-state">
+        <mat-icon class="empty-icon">smart_toy</mat-icon>
+        <h4>GitHub Copilot Chat</h4>
+        <p>
+          Chat with GitHub Copilot models ({{ selectedModel }}).
+          The model has access to MCP tools to discover tables, generate SQL,
+          and execute queries &mdash; just like Copilot in VS Code.
+        </p>
+        <p *ngIf="!copilotConfigured" class="config-hint">
+          <mat-icon>info</mat-icon>
+          Click the <strong>⚙</strong> icon to sign in with GitHub and connect Copilot.
+        </p>
+        <div class="quick-actions">
+          <button class="quick-btn" (click)="sendQuickAction('List all tables in the database')">
+            <mat-icon>table_chart</mat-icon> List tables
+          </button>
+          <button class="quick-btn" (click)="sendQuickAction('Show me the 10 most recent rows in the largest table')">
+            <mat-icon>schedule</mat-icon> Recent rows
+          </button>
+          <button class="quick-btn" (click)="sendQuickAction('How many rows are in each table?')">
+            <mat-icon>numbers</mat-icon> Row counts
+          </button>
+          <button class="quick-btn" (click)="sendQuickAction('Describe the relationships between tables')">
+            <mat-icon>account_tree</mat-icon> Relationships
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat messages -->
+      <div
+        *ngFor="let msg of messages; trackBy: trackMessage"
+        class="message"
+        [class.user-message]="msg.role === 'user'"
+        [class.assistant-message]="msg.role === 'assistant'"
+      >
+        <!-- User message -->
+        <ng-container *ngIf="msg.role === 'user'">
+          <div class="msg-avatar user-avatar">
+            <mat-icon>person</mat-icon>
+          </div>
+          <div class="msg-body">
+            <div class="msg-content user-content">{{ msg.content }}</div>
+          </div>
+        </ng-container>
+
+        <!-- Assistant message -->
+        <ng-container *ngIf="msg.role === 'assistant'">
+          <div class="msg-avatar agent-avatar">
+            <mat-icon>smart_toy</mat-icon>
+          </div>
+          <div class="msg-body">
+            <!-- Active Database Badge -->
+            <div *ngIf="msg.activeDatabase" class="active-db-badge">
+              <mat-icon class="db-icon">storage</mat-icon>
+              <span class="db-label">Database:</span>
+              <span class="db-name">{{ msg.activeDatabase }}</span>
+            </div>
+
+            <!-- Tool Steps (Copilot-style) -->
+            <div *ngIf="msg.toolSteps?.length" class="tool-steps-section">
+              <div class="tool-steps-header" (click)="toggleToolSteps(msg)">
+                <mat-icon class="toggle-icon">{{ msg._toolsExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+                <span class="tool-steps-label" *ngIf="msg.totalTimeMs">
+                  Used {{ msg.toolSteps!.length }} tool{{ msg.toolSteps!.length !== 1 ? 's' : '' }}
+                </span>
+                <span class="tool-steps-label tool-steps-active" *ngIf="!msg.totalTimeMs">
+                  <mat-spinner diameter="14" class="action-spinner"></mat-spinner>
+                  Using {{ msg.toolSteps!.length }} tool{{ msg.toolSteps!.length !== 1 ? 's' : '' }}...
+                </span>
+                <span *ngIf="msg.totalTimeMs" class="total-time">{{ msg.totalTimeMs | number:'1.0-0' }}ms</span>
+              </div>
+
+              <div *ngIf="msg._toolsExpanded" class="tool-steps-list">
+                <ng-container *ngFor="let step of msg.toolSteps; let i = index; trackBy: trackToolStep">
+                  <!-- Model reasoning -->
+                  <div *ngIf="step.reasoning" class="thinking-block">
+                    <div class="thinking-header">
+                      <mat-icon class="thinking-icon">psychology</mat-icon>
+                      <span class="thinking-label">Thinking</span>
+                    </div>
+                    <div class="thinking-content" [innerHTML]="renderMarkdown(step.reasoning)"></div>
+                  </div>
+
+                  <!-- Tool action description -->
+                  <div class="tool-action-line" [class.tool-in-progress]="!step.execution_time_ms">
+                    <mat-spinner *ngIf="!step.execution_time_ms" diameter="14" class="action-spinner"></mat-spinner>
+                    <mat-icon *ngIf="step.execution_time_ms" class="action-icon" [class.icon-success]="step.success" [class.icon-error]="!step.success">
+                      {{ step.success ? 'check_circle' : 'error' }}
+                    </mat-icon>
+                    <span class="action-text">{{ toolStepThinking(step) }}</span>
+                    <span *ngIf="step.database" class="step-db-tag">
+                      <mat-icon class="step-db-icon">storage</mat-icon>
+                      {{ step.database }}
+                    </span>
+                    <span *ngIf="step.execution_time_ms" class="step-time-inline">
+                      {{ step.execution_time_ms | number:'1.0-0' }}ms
+                    </span>
+                  </div>
+
+                  <div
+                    class="tool-step"
+                    [class.step-success]="step.success"
+                    [class.step-error]="!step.success"
+                  >
+                    <div class="step-header" (click)="toggleStep(msg.id, i)">
+                      <mat-icon class="step-icon" [class.icon-success]="step.success" [class.icon-error]="!step.success">
+                        {{ getToolIcon(step.tool_name) }}
+                      </mat-icon>
+                      <span class="step-name">{{ step.tool_name }}</span>
+                      <span class="step-summary">{{ toolStepSummary(step) }}</span>
+                      <span *ngIf="isFoundryGrounding(step) && foundryConfigured(step)" class="foundry-badge">
+                        <mat-icon class="foundry-badge-icon">verified</mat-icon> Foundry IQ
+                      </span>
+                      <mat-icon class="step-expand">
+                        {{ isStepExpanded(msg.id, i) ? 'expand_less' : 'expand_more' }}
+                      </mat-icon>
+                    </div>
+
+                    <div *ngIf="isStepExpanded(msg.id, i)" class="step-details">
+                      <div class="step-detail-section">
+                        <span class="detail-label">Arguments</span>
+                        <pre class="detail-json">{{ formatJson(step.arguments) }}</pre>
+                      </div>
+                      <div class="step-detail-section">
+                        <span class="detail-label">
+                          Result
+                          <span *ngIf="!step.success" class="error-badge">ERROR</span>
+                        </span>
+                        <pre *ngIf="step.error" class="detail-json error-json">{{ step.error }}</pre>
+                        <pre *ngIf="!step.error" class="detail-json">{{ formatJson(step.result) }}</pre>
+                      </div>
+                      <div *ngIf="isFoundryGrounding(step) && foundryCitations(step).length" class="step-detail-section foundry-citations">
+                        <span class="detail-label foundry-label">
+                          <mat-icon class="foundry-badge-icon">verified</mat-icon>
+                          Grounded by Microsoft Foundry IQ — {{ foundryCitations(step).length }} governed source{{ foundryCitations(step).length !== 1 ? 's' : '' }}
+                        </span>
+                        <div class="citation" *ngFor="let c of foundryCitations(step)">
+                          <div class="citation-title">{{ c.title || 'knowledge passage' }}</div>
+                          <div *ngIf="c.source" class="citation-source">{{ c.source }}</div>
+                          <div *ngIf="c.snippet" class="citation-snippet">{{ c.snippet }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Live thinking indicator -->
+            <div *ngIf="msg._thinkingText && !msg.totalTimeMs" class="live-thinking">
+              <mat-icon class="thinking-pulse">psychology</mat-icon>
+              <span class="thinking-text" [innerHTML]="renderMarkdown(msg._thinkingText)"></span>
+            </div>
+
+            <!-- SQL block -->
+            <div *ngIf="msg.sql" class="sql-section">
+              <div class="sql-header" (click)="toggleSql(msg)">
+                <mat-icon>code</mat-icon>
+                <span>Generated SQL</span>
+                <mat-icon class="toggle-icon">{{ msg._sqlExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </div>
+              <pre *ngIf="msg._sqlExpanded" class="sql-code">{{ msg.sql }}</pre>
+            </div>
+
+            <!-- Results table -->
+            <div *ngIf="msg.records?.length" class="results-section">
+              <div class="results-header" (click)="toggleResults(msg)">
+                <mat-icon>table_chart</mat-icon>
+                <span>{{ msg.rowCount ?? msg.records!.length }} row{{ (msg.rowCount ?? msg.records!.length) !== 1 ? 's' : '' }}</span>
+                <span *ngIf="msg.confidence" class="confidence-badge" [class]="'conf-' + msg.confidence!.toLowerCase()">
+                  {{ msg.confidence }}
+                </span>
+                <mat-icon class="toggle-icon">{{ msg._resultsExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+              </div>
+              <div *ngIf="msg._resultsExpanded" class="results-table-wrap">
+                <div class="results-table-scroll">
+                  <table class="results-table">
+                    <thead>
+                      <tr>
+                        <th *ngFor="let col of msg.columns">{{ col }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let row of msg.records | slice:0:100">
+                        <td *ngFor="let col of msg.columns">{{ $any(row)[col] }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div *ngIf="msg.records!.length > 100" class="results-truncated">
+                  Showing 100 of {{ msg.records!.length }} rows
+                </div>
+              </div>
+            </div>
+
+            <!-- Text response -->
+            <div *ngIf="msg.content" class="msg-content agent-content" [innerHTML]="renderMarkdown(msg.content)"></div>
+
+            <!-- Verifiable Trust Layer panel -->
+            <div *ngIf="hasTrust(msg)" class="trust-panel" [class]="'trust-' + trustLabel(msg)">
+              <div class="trust-head">
+                <mat-icon class="trust-icon">{{ trustIcon(msg) }}</mat-icon>
+                <span class="trust-headline">{{ trustHeadline(msg) }}</span>
+                <span class="trust-spacer"></span>
+                <span *ngIf="msg.trustScore != null" class="trust-score">Trust {{ msg.trustScore }}/100</span>
+                <span class="trust-count">{{ trustPassedCount(msg) }}/{{ trustChecks(msg).length }} checks</span>
+              </div>
+
+              <!-- Dual-path cross-check -->
+              <div *ngIf="trustVerification(msg) as v" class="trust-verify"
+                   [class.agree]="v.agreed" [class.disagree]="!v.agreed">
+                <mat-icon class="trust-verify-icon">{{ v.agreed ? 'fact_check' : 'report_problem' }}</mat-icon>
+                <span class="trust-verify-text">
+                  <strong>{{ v.method_primary }}</strong> = {{ v.primary_value }}
+                  &nbsp;vs&nbsp;
+                  <strong>{{ v.method_check }}</strong> = {{ v.check_value }}
+                  <span class="trust-verdict">{{ v.agreed ? '→ agree' : '→ disagree' }} (Δ {{ v.delta }})</span>
+                </span>
+              </div>
+
+              <!-- Evidence checklist -->
+              <div class="trust-checks">
+                <div class="trust-check" *ngFor="let c of trustChecks(msg)"
+                     [class.passed]="c.passed" [class.failed]="!c.passed">
+                  <mat-icon class="trust-check-icon">{{ c.passed ? 'check_circle' : 'cancel' }}</mat-icon>
+                  <span class="trust-check-name">{{ c.name }}</span>
+                  <span class="trust-check-detail">{{ c.detail }}</span>
+                </div>
+              </div>
+
+              <!-- Governed provenance -->
+              <div *ngIf="trustGroundedSources(msg).length" class="trust-provenance">
+                <mat-icon class="trust-prov-icon">verified</mat-icon>
+                <span>Governed by Microsoft Foundry IQ:
+                  <span class="trust-prov-src" *ngFor="let s of trustGroundedSources(msg); let last = last">{{ s.title }}{{ !last ? ', ' : '' }}</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Meta information bar (tokens, time, cost) -->
+            <div *ngIf="msg.totalTimeMs || msg.tokenUsage" class="meta-info-bar">
+              <span *ngIf="msg.totalTimeMs" class="meta-item" matTooltip="Total response time">
+                <mat-icon class="meta-icon">schedule</mat-icon>
+                {{ formatTime(msg.totalTimeMs!) }}
+              </span>
+              <span *ngIf="msg.tokenUsage" class="meta-item" matTooltip="Tokens: {{ msg.tokenUsage!.prompt_tokens }} prompt + {{ msg.tokenUsage!.completion_tokens }} completion">
+                <mat-icon class="meta-icon">token</mat-icon>
+                {{ formatTokenCount(msg.tokenUsage!.total_tokens) }}
+              </span>
+              <span *ngIf="msg.tokenUsage?.estimated_cost" class="meta-item" matTooltip="Estimated API cost">
+                <mat-icon class="meta-icon">payments</mat-icon>
+                {{ formatCostDisplay(msg.tokenUsage!.estimated_cost) }}
+              </span>
+              <span *ngIf="msg.tokenUsage?.model" class="meta-item meta-model" matTooltip="Model used">
+                <mat-icon class="meta-icon">smart_toy</mat-icon>
+                {{ msg.tokenUsage!.model }}
+              </span>
+              <span *ngIf="msg.toolSteps?.length" class="meta-item" matTooltip="MCP tool calls">
+                <mat-icon class="meta-icon">build</mat-icon>
+                {{ msg.toolSteps!.length }} tools
+              </span>
+            </div>
+
+            <!-- In-progress indicator -->
+            <div *ngIf="!msg.content && !msg.error && !msg.toolSteps?.length && isLoading && msg === getLastAssistantMessage()" class="thinking-indicator inline-loading">
+              <mat-spinner diameter="16"></mat-spinner>
+              <span>{{ selectedModel }} is working...</span>
+            </div>
+
+            <!-- Error state -->
+            <div *ngIf="msg.error && !msg.content" class="msg-error">
+              <mat-icon>error_outline</mat-icon>
+              <span>{{ msg.error }}</span>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <!-- Loading indicator -->
+      <div *ngIf="isLoading && messages[messages.length - 1]?.role !== 'assistant'" class="message assistant-message loading-message">
+        <div class="msg-avatar agent-avatar">
+          <mat-icon>smart_toy</mat-icon>
+        </div>
+        <div class="msg-body">
+          <div class="thinking-indicator">
+            <mat-spinner diameter="16"></mat-spinner>
+            <span>{{ selectedModel }} is working &mdash; calling MCP tools...</span>
+          </div>
+        </div>
+      </div>
+      </div> <!-- /messages-inner -->
+    </div>
+
+    <!-- Input area (ChatGPT-style) -->
+    <div class="chatgpt-input-area">
+      <div class="input-container" [class.focused]="inputFocused" [class.has-text]="inputText.trim()">
+        <!-- Menu trigger (model + settings) -->
+        <button class="input-menu-trigger" [matMenuTriggerFor]="inputMenu" matTooltip="Options">
+          <mat-icon class="!text-[18px]">more_horiz</mat-icon>
+        </button>
+        <mat-menu #inputMenu="matMenu" class="input-dropdown-menu mcp-model-menu" backdropClass="input-dropdown-backdrop" xPosition="after" yPosition="above">
+          <!-- Grouped Model Selection -->
+          <ng-container *ngIf="groupedModels.length > 0">
+            <div class="menu-section-label">
+              <mat-icon class="!text-[14px]">psychology</mat-icon>
+              <span>Model</span>
+            </div>
+            <div class="model-scroll-area" (click)="$event.stopPropagation()">
+              <ng-container *ngFor="let group of groupedModels">
+                <!-- Vendor header (click to expand/collapse) -->
+                <div class="vendor-header" (click)="toggleVendorGroup(group)">
+                  <mat-icon class="expand-icon" [class.rotated]="group.expanded">expand_more</mat-icon>
+                  <div class="vendor-info">
+                    <span class="vendor-name">{{ group.vendor }}</span>
+                    <span class="vendor-selected-model" *ngIf="getSelectedModelInGroup(group) as modelName">{{ modelName }}</span>
+                  </div>
+                  <span class="vendor-count">{{ group.models.length }}</span>
+                </div>
+                <!-- Models under this vendor (shown when expanded) -->
+                <ng-container *ngIf="group.expanded">
+                  <div *ngFor="let m of group.models"
+                       class="model-option" [class.selected]="m.id === selectedModel"
+                       (click)="selectedModel = m.id">
+                    <mat-icon class="model-radio">{{ m.id === selectedModel ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+                    <span class="model-name">{{ m.name }}</span>
+                    <span *ngIf="m.id === selectedModel" class="model-active-badge">Active</span>
+                  </div>
+                </ng-container>
+              </ng-container>
+            </div>
+            <mat-divider></mat-divider>
+          </ng-container>
+          <div class="menu-section-label">
+            <mat-icon class="!text-[14px]">settings</mat-icon>
+            <span>Settings</span>
+          </div>
+          <button mat-menu-item (click)="toggleToolPanel()">
+            <mat-icon>extension</mat-icon>
+            <span>{{ showToolPanel ? 'Hide Tools' : 'View Tools' }}</span>
+          </button>
+          <button mat-menu-item (click)="openConfigDialog()">
+            <mat-icon>{{ copilotConfigured ? 'check_circle' : 'key' }}</mat-icon>
+            <span>{{ copilotConfigured ? 'Token Connected' : 'Connect GitHub' }}</span>
+          </button>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="clearChat()"
+                  *ngIf="messages.length"
+                  class="menu-danger">
+            <mat-icon>delete_sweep</mat-icon>
+            <span>Clear Chat</span>
+          </button>
+        </mat-menu>
+        <textarea
+          #messageInput
+          [(ngModel)]="inputText"
+          (keydown)="onInputKeydown($event)"
+          (input)="autoResizeInput()"
+          (focus)="inputFocused = true"
+          (blur)="inputFocused = false"
+          placeholder="Ask a question..."
+          rows="1"
+          class="chat-textarea"
+          [disabled]="isLoading"
+        ></textarea>
+        <div class="input-actions">
+          <button
+            class="send-btn"
+            (click)="sendMessage()"
+            [disabled]="!inputText.trim() || isLoading"
+            [class.active]="inputText.trim()"
+            matTooltip="Send (Enter)"
+          >
+            <mat-icon class="!text-[18px]">{{ isLoading ? 'hourglass_top' : 'arrow_upward' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copilot Config Dialog (overlay) -->
+  <div *ngIf="showConfigDialog" class="config-overlay" (click)="closeConfigDialog()">
+    <div class="config-dialog" (click)="$event.stopPropagation()">
+      <div class="config-header">
+        <h4><mat-icon>key</mat-icon> Connect GitHub Copilot</h4>
+        <button class="btn btn-icon" (click)="closeConfigDialog()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+      <div class="config-body">
+
+        <!-- Device Flow: Active -->
+        <div *ngIf="deviceFlowActive" class="device-flow-active">
+          <p class="config-desc">
+            A browser window has been opened. Enter this code on GitHub:
+          </p>
+          <div class="device-code-display" (click)="copyDeviceCode()" matTooltip="Click to copy">
+            <span class="device-code">{{ deviceFlowCode }}</span>
+            <mat-icon class="copy-icon">content_copy</mat-icon>
+          </div>
+          <p class="device-flow-hint">
+            <mat-icon>open_in_new</mat-icon>
+            If the page didn't open, go to
+            <a [href]="deviceFlowUri" target="_blank">{{ deviceFlowUri }}</a>
+          </p>
+          <div *ngIf="deviceFlowPolling" class="device-flow-waiting">
+            <mat-spinner diameter="20"></mat-spinner>
+            <span>{{ deviceFlowStatus }}</span>
+          </div>
+        </div>
+
+        <!-- Device Flow: Not active -->
+        <div *ngIf="!deviceFlowActive">
+          <!-- Signed in: show profile -->
+          <div *ngIf="githubUser" class="github-profile">
+            <img [src]="githubUser.avatar_url" alt="avatar" class="github-avatar" />
+            <div class="github-profile-info">
+              <span class="github-name">{{ githubUser.name || githubUser.username }}</span>
+              <span class="github-username">{{'@' + githubUser.username}}</span>
+            </div>
+            <button class="btn btn-danger-outline" (click)="signOutGitHub()">
+              <mat-icon>logout</mat-icon>
+              Sign out
+            </button>
+          </div>
+          <!-- Not signed in: show sign in button -->
+          <div *ngIf="!githubUser">
+            <p class="config-desc">
+              Sign in with your GitHub account to use Copilot models.
+              Your account must have an active GitHub Copilot subscription.
+            </p>
+            <button class="btn btn-github" (click)="startGitHubSignIn()">
+              <mat-icon>login</mat-icon>
+              Sign in with GitHub
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="config-footer">
+        <button *ngIf="deviceFlowActive" class="btn btn-secondary" (click)="cancelDeviceFlow()">Cancel</button>
+        <button *ngIf="!deviceFlowActive" class="btn btn-secondary" (click)="closeConfigDialog()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tool Reference Panel -->
+  <div *ngIf="showToolPanel" class="tool-panel">
+    <div class="tool-panel-header">
+      <h4>
+        <mat-icon>extension</mat-icon>
+        Available Tools
+      </h4>
+      <span class="tool-count">{{ tools.length }}</span>
+    </div>
+    <div class="tool-panel-search">
+      <mat-icon>search</mat-icon>
+      <input type="text" [(ngModel)]="toolSearch" placeholder="Filter tools..." />
+    </div>
+    <div class="tool-panel-list">
+      <div *ngFor="let cat of toolCategories" class="tool-cat">
+        <div class="tool-cat-header">
+          <mat-icon>{{ getCategoryIcon(cat.name) }}</mat-icon>
+          <span>{{ cat.name }}</span>
+          <span class="tool-cat-count">{{ cat.tools.length }}</span>
+        </div>
+        <div *ngFor="let tool of cat.tools" class="tool-ref-item" [matTooltip]="tool.description">
+          <span class="tool-ref-name">{{ tool.name }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
