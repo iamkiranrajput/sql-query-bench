@@ -15,6 +15,9 @@ validate SQL, and execute it safely — then explains the results.
 
 ## Demo Video
 
+[Watch the 10-minute QueryBench hackathon demo on youtube](https://youtu.be/bP9VPO2PLC4)
+
+
 [Watch the 4-minute QueryBench hackathon demo](./querybench_hackathon_PPT.mp4)
 
 This walkthrough shows the agent experience end to end: governed business
