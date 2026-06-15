@@ -201,6 +201,17 @@ class GetTablesResponse(BaseModel):
     error: str = None
 
 
+class SchemaSessionRequest(BaseModel):
+    """Request model for schema explorer compatibility endpoints."""
+    session_id: str
+
+
+class DescribeTableRequest(BaseModel):
+    """Request model for simple table descriptions."""
+    session_id: str
+    table_name: str
+
+
 @router.post("/get-tables", response_model=GetTablesResponse)
 @limiter.limit(RateLimits.DB_SCHEMA)
 def get_tables(request: Request, tables_request: GetTablesRequest):
@@ -303,6 +314,210 @@ def get_tables(request: Request, tables_request: GetTablesRequest):
             success=False,
             error=f"Failed to get tables: {error_str}"
         )
+
+
+def _schema_tables_from_snapshot(snapshot: dict) -> list:
+    """Convert the cached DB snapshot into the legacy UI table shape."""
+    tables = []
+    for table_name, table_info in sorted((snapshot.get("tables") or {}).items()):
+        columns = []
+        for col_name, col_info in (table_info.get("columns") or {}).items():
+            columns.append(
+                {
+                    "name": col_name,
+                    "type": col_info.get("type", "unknown"),
+                    "nullable": col_info.get("nullable", True),
+                    "default": col_info.get("default"),
+                    "is_pk": bool(col_info.get("pk")),
+                }
+            )
+        tables.append(
+            {
+                "name": table_name,
+                "columns": columns,
+                "row_count": None,
+                "ai_description": (
+                    f"{table_name} contains {len(columns)} column"
+                    f"{'' if len(columns) == 1 else 's'}."
+                ),
+            }
+        )
+    return tables
+
+
+def _visual_schema_from_snapshot(snapshot: dict) -> dict:
+    """Convert the cached DB snapshot into the visual schema contract."""
+    foreign_keys = snapshot.get("foreign_keys") or []
+    fk_by_column = {
+        (fk.get("from_table"), fk.get("from_column")): fk
+        for fk in foreign_keys
+    }
+
+    visual_tables = []
+    total_columns = 0
+    for table_name, table_info in sorted((snapshot.get("tables") or {}).items()):
+        visual_columns = []
+        for col_name, col_info in (table_info.get("columns") or {}).items():
+            fk = fk_by_column.get((table_name, col_name))
+            visual_columns.append(
+                {
+                    "name": col_name,
+                    "data_type": col_info.get("type", "unknown"),
+                    "is_nullable": bool(col_info.get("nullable", True)),
+                    "is_pk": bool(col_info.get("pk")),
+                    "is_fk": bool(fk),
+                    "fk_target_table": fk.get("to_table") if fk else None,
+                    "fk_target_column": fk.get("to_column") if fk else None,
+                    "default_value": col_info.get("default"),
+                }
+            )
+        total_columns += len(visual_columns)
+        visual_tables.append(
+            {
+                "name": table_name,
+                "columns": visual_columns,
+                "row_count": None,
+                "column_count": len(visual_columns),
+            }
+        )
+
+    relationships = [
+        {
+            "from_table": fk.get("from_table"),
+            "from_column": fk.get("from_column"),
+            "to_table": fk.get("to_table"),
+            "to_column": fk.get("to_column"),
+            "relationship_type": "foreign_key",
+            "confidence": 1.0,
+            "method": "explicit",
+        }
+        for fk in foreign_keys
+        if fk.get("from_table") and fk.get("from_column") and fk.get("to_table") and fk.get("to_column")
+    ]
+
+    return {
+        "tables": visual_tables,
+        "relationships": relationships,
+        "total_tables": len(visual_tables),
+        "total_columns": total_columns,
+        "total_relationships": len(relationships),
+    }
+
+
+def _visual_schema_response(session_id: str) -> dict:
+    session = database_service.get_session(session_id)
+    if not session:
+        return {"success": False, "error": "Session not found or expired"}
+
+    snapshot = database_service.get_schema_snapshot(session_id)
+    return {"success": True, **_visual_schema_from_snapshot(snapshot)}
+
+
+@router.post("/schema-explorer")
+@limiter.limit(RateLimits.DB_SCHEMA)
+def get_schema_explorer(request: Request, schema_request: SchemaSessionRequest):
+    """Compatibility endpoint used by the Angular Schema Explorer list view."""
+    try:
+        session = database_service.get_session(schema_request.session_id)
+        if not session:
+            return {"success": False, "error": "Session not found or expired"}
+
+        snapshot = database_service.get_schema_snapshot(schema_request.session_id)
+        tables = _schema_tables_from_snapshot(snapshot)
+        return {"success": True, "tables": tables}
+    except Exception as e:
+        logger.error(f"Schema explorer failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/schema-visual")
+@limiter.limit(RateLimits.DB_SCHEMA)
+def get_schema_visual(request: Request, schema_request: SchemaSessionRequest):
+    """Compatibility endpoint used by the Angular visual schema canvas."""
+    try:
+        return _visual_schema_response(schema_request.session_id)
+    except Exception as e:
+        logger.error(f"Visual schema failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/schema-visual-refresh")
+@limiter.limit(RateLimits.DB_SCHEMA)
+def refresh_schema_visual(request: Request, schema_request: SchemaSessionRequest):
+    """Refresh-compatible visual schema endpoint.
+
+    The current backend keeps schema in memory per database. Returning the
+    latest snapshot keeps the UI contract intact without a separate FK graph
+    service.
+    """
+    try:
+        return _visual_schema_response(schema_request.session_id)
+    except Exception as e:
+        logger.error(f"Visual schema refresh failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/describe-table")
+@limiter.limit(RateLimits.DB_SCHEMA)
+def describe_table(request: Request, describe_request: DescribeTableRequest):
+    """Return a concise local description for a table."""
+    try:
+        snapshot = database_service.get_schema_snapshot(describe_request.session_id)
+        table_info = (snapshot.get("tables") or {}).get(describe_request.table_name)
+        if not table_info:
+            return {"success": False, "error": "Table not found"}
+
+        columns = table_info.get("columns") or {}
+        pk_columns = [name for name, info in columns.items() if info.get("pk")]
+        description = (
+            f"{describe_request.table_name} has {len(columns)} column"
+            f"{'' if len(columns) == 1 else 's'}"
+        )
+        if pk_columns:
+            description += f"; primary key: {', '.join(pk_columns)}"
+        description += "."
+        return {"success": True, "description": description}
+    except Exception as e:
+        logger.error(f"Describe table failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/schema-intelligence/status")
+def get_schema_intelligence_status(request: Request, session_id: str):
+    """Compatibility status endpoint for the schema status indicator."""
+    try:
+        session = database_service.get_session(session_id)
+        if not session:
+            return {
+                "success": False,
+                "status": "unavailable",
+                "has_embeddings": False,
+                "message": "Session not found or expired",
+            }
+
+        snapshot = database_service.get_schema_snapshot(session_id)
+        tables = snapshot.get("tables") or {}
+        columns_count = sum(
+            len((table_info.get("columns") or {}))
+            for table_info in tables.values()
+        )
+        return {
+            "success": True,
+            "status": "ready",
+            "has_embeddings": False,
+            "tables_count": len(tables),
+            "columns_count": columns_count,
+            "message": "Schema cache ready",
+            "cached": bool(snapshot),
+        }
+    except Exception as e:
+        logger.error(f"Schema intelligence status failed: {e}")
+        return {
+            "success": False,
+            "status": "unavailable",
+            "has_embeddings": False,
+            "message": str(e),
+        }
 
 
 class PresetConnectionResponse(BaseModel):

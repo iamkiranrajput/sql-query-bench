@@ -101,6 +101,7 @@ ui/coverage/
 
 # Test scripts and results
 _*.py
+!**/__init__.py
 _*.txt
 test_*.py
 test_*.log
@@ -131,4 +132,3 @@ server/app/data/learning/
 
 # Local dev tools (downloaded binaries)
 server/tools/
-

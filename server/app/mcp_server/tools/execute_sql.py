@@ -11,6 +11,8 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
+from .sql_normalizer import normalize_readonly_sql
+
 logger = logging.getLogger(__name__)
 
 # Will be injected by the MCP server
@@ -106,8 +108,9 @@ def execute_sql(
         max_rows = min(max(1, max_rows), 50000)
         timeout_seconds = min(max(1, timeout_seconds), 300)
         
-        # Basic security check (validate_sql should be called first)
-        sql_clean = sql.strip()
+        # Basic security check (validate_sql should be called first). Normalize
+        # harmless leading labels like "Method 1:" before enforcing SELECT-only.
+        sql_clean = normalize_readonly_sql(sql)
         sql_upper = sql_clean.upper()
         if not sql_upper.startswith("SELECT") and not sql_upper.startswith("WITH"):
             return {
@@ -172,7 +175,7 @@ def execute_sql(
                 except Exception:
                     pass  # Ignore if not supported
             
-            result: Result = conn.execute(text(sql))
+            result: Result = conn.execute(text(sql_clean))
             rows = result.fetchmany(max_rows + 1)  # Fetch one extra to detect truncation
             col_names = list(result.keys())
             
@@ -226,7 +229,7 @@ def execute_sql(
             "execution_time_ms": round(execution_time_ms, 2),
             "csv_data": csv_data,
             "truncated": truncated,
-            "sql": sql,
+            "sql": sql_clean,
             "error": None
         }
         

@@ -192,11 +192,19 @@ COPILOT_BEHAVIORAL_RULES = """
    questions, respond briefly and offer to help with the database. For database \
    questions, go straight to tool calls -- no preamble.
 
-7. **Verify before you assert.** For any answer that turns on a single headline \
-   number, run a second independent ``execute_sql`` that computes it a different \
-   way and compare the two. If they agree, present it as cross-checked and name \
-   both methods; if they disagree, self-correct and explain. Never present an \
-   unverified headline number as final.
+7. The ``sql`` argument for ``validate_sql`` and ``execute_sql`` must contain \
+   only executable SQL. Do not include labels, markdown fences, prose, method \
+   names, explanations, or comments inside the tool argument; put those in the \
+   final answer after the query has executed.
+
+8. **Verify before you assert.** For every analytical SQL answer, validate or \
+   otherwise prove the SQL against the live database before finalizing. For any \
+   answer that turns on a single headline number, cross-check it either with a \
+   second independent ``execute_sql`` that returns one numeric cell, or with one \
+   verification ``execute_sql`` returning exactly two numeric columns (one per \
+   method). If they agree, present it as cross-checked and name both methods; if \
+   they disagree, self-correct and explain. Never present an unverified headline \
+   number as final.
 """
 
 
@@ -227,7 +235,9 @@ methods and their results, e.g. "city-label filter = **618** vs geocoded
 ``ST_DWithin`` = **100** → **disagree** (Δ 518)" or "Haversine = **26** vs
 PostGIS ``ST_DWithin`` = **26** → **agree**". If the two paths agreed, say the
 result is cross-checked. If they disagreed, say which path you trust and why —
-that discrepancy is your Root Cause Analysis trigger. Omit only for
+that discrepancy is your Root Cause Analysis trigger. Make the evidence visible
+to the trust layer by running two one-cell ``execute_sql`` checks, or one
+``execute_sql`` that returns exactly two numeric columns. Omit only for
 non-analytical / conversational replies.
 
 ### Root Cause Analysis

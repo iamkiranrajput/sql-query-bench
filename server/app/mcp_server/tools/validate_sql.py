@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Set
 
 import sqlparse
 
+from .sql_normalizer import normalize_readonly_sql
+
 logger = logging.getLogger(__name__)
 
 # Forbidden SQL operations (security)
@@ -90,8 +92,9 @@ def validate_sql(
                 "error": None
             }
         
-        # Clean up SQL
-        sql_clean = sql.strip()
+        # Clean up SQL. LLM tool calls sometimes include labels such as
+        # "Method 1:" before the query; validation should inspect the query.
+        sql_clean = normalize_readonly_sql(sql)
         sql_upper = sql_clean.upper()
         
         # ================================================================
@@ -190,6 +193,7 @@ def validate_sql(
             "statement_type": statement_type,
             "tables_referenced": tables_referenced,
             "formatted_sql": formatted_sql,
+            "normalized_sql": sql_clean,
             "error": None
         }
         

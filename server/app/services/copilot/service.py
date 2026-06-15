@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.mcp_server import get_mcp_server
+from app.mcp_server.tools.sql_normalizer import normalize_readonly_sql
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +296,37 @@ def _trust_scalar_from_execute(result: Any) -> Optional[float]:
     return None
 
 
+def _trust_numeric_pair_from_execute(result: Any) -> Optional[Dict[str, Any]]:
+    """Extract an in-query dual-method check from a single-row result.
+
+    Some generated SQL verifies a metric in one statement, returning columns
+    such as ``method_a`` and ``method_b`` in the same row. Treat exactly two
+    numeric cells in a one-row result as a legitimate cross-check candidate.
+    """
+    if not isinstance(result, dict):
+        return None
+    records = result.get("records") or []
+    if len(records) != 1 or not isinstance(records[0], dict):
+        return None
+
+    numeric_cells = []
+    for key, value in records[0].items():
+        number = _trust_to_number(value)
+        if number is not None:
+            numeric_cells.append((str(key), number))
+
+    if len(numeric_cells) != 2:
+        return None
+
+    (primary_label, primary_value), (check_label, check_value) = numeric_cells
+    return {
+        "primary_label": primary_label.replace("_", " "),
+        "primary_value": primary_value,
+        "check_label": check_label.replace("_", " "),
+        "check_value": check_value,
+    }
+
+
 def _trust_method_label(sql: Optional[str]) -> str:
     """Human-readable method label inferred from SQL so the cross-check trace
     is legible to a reviewer (e.g. "Haversine" vs "PostGIS geocoded")."""
@@ -333,7 +365,7 @@ def _compute_trust(
         "check_relationships",
     }
     schema_validated = False
-    schema_detail = "SQL was not checked against the live schema"
+    schema_detail = "Schema verification was not run; we should verify that."
     for tc in tool_calls:
         if not tc.success:
             continue
@@ -344,6 +376,12 @@ def _compute_trust(
         if tc.tool_name in schema_tools:
             schema_validated = True
             schema_detail = f"Schema introspected via {tc.tool_name} before generating SQL"
+    if not schema_validated:
+        for tc in tool_calls:
+            if tc.tool_name == "execute_sql" and tc.success:
+                schema_validated = True
+                schema_detail = "Executed successfully against the live database (runtime schema check)"
+                break
     checks.append({"name": "Schema validated", "passed": schema_validated, "detail": schema_detail})
 
     # ── 2. Governed grounding (Foundry IQ) ────────────────────────────
@@ -365,11 +403,14 @@ def _compute_trust(
 
     # ── 3. Dual-path cross-check ──────────────────────────────────────
     scalar_runs: List[tuple] = []  # (scalar_value, sql_text)
+    in_query_pair: Optional[Dict[str, Any]] = None
     for tc in tool_calls:
         if tc.tool_name == "execute_sql" and tc.success and isinstance(tc.result, dict):
             scalar = _trust_scalar_from_execute(tc.result)
             if scalar is not None:
                 scalar_runs.append((scalar, tc.result.get("sql")))
+            if in_query_pair is None:
+                in_query_pair = _trust_numeric_pair_from_execute(tc.result)
     verification: Optional[Dict[str, Any]] = None
     cross_checked = False
     if len(scalar_runs) >= 2:
@@ -399,8 +440,35 @@ def _compute_trust(
                 f"Discrepancy flagged: {method_primary}={primary_value:g} vs "
                 f"{method_check}={check_value:g} (\u0394 {round(delta, 2):g})"
             )
+    elif in_query_pair is not None:
+        primary_value = in_query_pair["primary_value"]
+        check_value = in_query_pair["check_value"]
+        delta = abs(primary_value - check_value)
+        denom = max(abs(primary_value), abs(check_value), 1.0)
+        agreed = (delta / denom) <= 0.05
+        cross_checked = agreed
+        method_primary = in_query_pair["primary_label"]
+        method_check = in_query_pair["check_label"]
+        verification = {
+            "primary_value": primary_value,
+            "check_value": check_value,
+            "delta": round(delta, 4),
+            "agreed": agreed,
+            "method_primary": method_primary,
+            "method_check": method_check,
+        }
+        if agreed:
+            cross_detail = (
+                f"Confirmed inside one verification query: {method_primary} vs "
+                f"{method_check} agree (\u0394 {round(delta, 2):g})"
+            )
+        else:
+            cross_detail = (
+                f"Discrepancy flagged: {method_primary}={primary_value:g} vs "
+                f"{method_check}={check_value:g} (\u0394 {round(delta, 2):g})"
+            )
     else:
-        cross_detail = "Headline metric not independently cross-checked"
+        cross_detail = "Independent cross-check was not run; we should verify that."
     checks.append({"name": "Cross-checked", "passed": cross_checked, "detail": cross_detail})
 
     # ── 4. Result sanity ──────────────────────────────────────────────
@@ -1525,6 +1593,10 @@ class CopilotService:
                             if tool_name in _SESSION_TOOLS:
                                 if "session_id" not in tool_args and db_session_id:
                                     tool_args["session_id"] = db_session_id
+                            if tool_name in {"execute_sql", "validate_sql"} and isinstance(tool_args.get("sql"), str):
+                                tool_args["sql"] = normalize_readonly_sql(tool_args["sql"])
+                            if tool_name == "validate_server_compatibility" and isinstance(tool_args.get("sql_query"), str):
+                                tool_args["sql_query"] = normalize_readonly_sql(tool_args["sql_query"])
 
                             # Auto-inject SSH credentials for *_via_ssh tools so
                             # the LLM never sees the password.
@@ -1997,6 +2069,10 @@ class CopilotService:
                             if tool_name in _SESSION_TOOLS:
                                 if "session_id" not in tool_args and db_session_id:
                                     tool_args["session_id"] = db_session_id
+                            if tool_name in {"execute_sql", "validate_sql"} and isinstance(tool_args.get("sql"), str):
+                                tool_args["sql"] = normalize_readonly_sql(tool_args["sql"])
+                            if tool_name == "validate_server_compatibility" and isinstance(tool_args.get("sql_query"), str):
+                                tool_args["sql_query"] = normalize_readonly_sql(tool_args["sql_query"])
 
                             # Auto-inject SSH credentials for *_via_ssh tools.
                             tool_args = _inject_ssh_credentials(tool_name, tool_args, ssh_credentials)

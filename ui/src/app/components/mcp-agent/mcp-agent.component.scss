@@ -1018,20 +1018,21 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 1px 7px;
+    padding: 2px 8px;
     border-radius: 10px;
     font-size: 10px;
-    font-weight: 600;
-    color: #0a3d91;
-    background: rgba(0, 120, 212, 0.12);
-    border: 1px solid rgba(0, 120, 212, 0.35);
+    font-weight: 700;
+    color: #064e3b;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(14, 165, 233, 0.16));
+    border: 1px solid rgba(20, 184, 166, 0.6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 0 0 2px rgba(20, 184, 166, 0.08);
     white-space: nowrap;
 
     .foundry-badge-icon {
       font-size: 12px;
       width: 12px;
       height: 12px;
-      color: #0078d4;
+      color: #059669;
     }
   }
 
@@ -1265,6 +1266,7 @@
   border-radius: 8px;
   padding: 10px 12px;
   background: var(--surface-subtle, #f9fafb);
+  color: var(--text-primary, #111827);
   font-size: 12px;
 
   .trust-head {
@@ -1399,6 +1401,67 @@
     border-left-color: #dc2626;
     background: #fef2f2;
     .trust-icon { color: #dc2626; }
+  }
+}
+
+:host-context(body.dark-theme) .trust-panel {
+  border-color: #25364a;
+  background: #101b27;
+  color: #dbeafe;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+  .trust-headline {
+    color: #f1f5f9;
+  }
+
+  .trust-score,
+  .trust-count {
+    background: rgba(96, 165, 250, 0.12);
+    color: #bfdbfe;
+  }
+
+  .trust-check-detail {
+    color: #9fb6d0;
+  }
+
+  .trust-check {
+    &.passed .trust-check-icon { color: #4ade80; }
+    &.failed .trust-check-icon { color: #94a3b8; }
+    &.failed .trust-check-name { color: #cbd5e1; }
+  }
+
+  .trust-verify {
+    &.agree {
+      background: rgba(34, 197, 94, 0.12);
+      color: #bbf7d0;
+    }
+
+    &.disagree {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fecaca;
+    }
+  }
+
+  .trust-provenance {
+    color: #c4b5fd;
+  }
+
+  &.trust-verified {
+    border-left-color: #22c55e;
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.16), #101b27 34%);
+    .trust-icon { color: #4ade80; }
+  }
+
+  &.trust-caution {
+    border-left-color: #f59e0b;
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), #101b27 34%);
+    .trust-icon { color: #fbbf24; }
+  }
+
+  &.trust-unverified {
+    border-left-color: #ef4444;
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.16), #101b27 34%);
+    .trust-icon { color: #f87171; }
   }
 }
 
@@ -2239,6 +2302,18 @@
     background: #142034;
     border-color: #1e2d3d;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .foundry-badge {
+    color: #ecfeff;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.34), rgba(37, 99, 235, 0.3));
+    border-color: rgba(103, 232, 249, 0.78);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 16px rgba(34, 211, 238, 0.28);
+
+    .foundry-badge-icon {
+      color: #67e8f9;
+      filter: drop-shadow(0 0 4px rgba(103, 232, 249, 0.55));
+    }
   }
 
   .msg-error {
