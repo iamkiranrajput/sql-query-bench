@@ -15,7 +15,10 @@ validate SQL, and execute it safely — then explains the results.
 
 ## Demo Video
 
-[Watch the 4-minute QueryBench hackathon demo](./querybench_hackathon_PPT.mp4)
+[Watch the 10-minute QueryBench hackathon demo on youtube](https://youtu.be/bP9VPO2PLC4)
+
+
+[Watch the 4-minute QueryBench hackathon demo](https://youtu.be/bP9VPO2PLC4)
 
 This walkthrough shows the agent experience end to end: governed business
 context from Microsoft Foundry IQ, MCP tool calls, PostGIS/pgvector-aware SQL,
